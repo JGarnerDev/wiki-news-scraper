@@ -1,9 +1,11 @@
+from urllib.parse import quote
+from dms2dec.dms_convert import dms2dec
+from bs4 import BeautifulSoup
 import os
 import requests
 import json
-from bs4 import BeautifulSoup
-from dms2dec.dms_convert import dms2dec
-from urllib.parse import quote
+import geograpy
+
 
 WIKI_SCRAPE_HERE_API_KEY = os.environ.get("WIKI_SCRAPE_HERE_API_KEY")
 
@@ -106,13 +108,20 @@ for category in all_news.keys():
 
             elif (location_table_header := soup.find('th', string="Place of death")):
                 location_query = location_table_header.next_element.next_element.text.strip()
+            elif (location_table_header := soup.find('th', string="Died")):
+                location_query = location_table_header.next_element.next_element.text.strip()
 
             elif (location := soup.find('div', {"class": "deathplace"})):
                 location_query = location.text.strip()
-
+            # ... pick the article heading and look for country as a fallback
             else:
-                location_query = soup.find(id="firstHeading").text.strip()
-            # ask the HERE Geocoding API for help, recieving geolocation based on the best string we found and add it to the news object
+                heading = soup.find(
+                    id="firstHeading").text
+
+                location_query = geograpy.get_geoPlace_context(
+                    text=heading).countries[0]
+
+            # ... and ask the HERE Geocoding API for help, recieving geolocation based on the best string we found and add it to the news object
             news['coords'] = query_for_dd(location_query)
 
-        print(news['coords'])
+        print(news['title'], news['coords'])
