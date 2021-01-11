@@ -1,6 +1,12 @@
+import os
 import requests
+import json
 from bs4 import BeautifulSoup
 from dms2dec.dms_convert import dms2dec
+from urllib.parse import quote
+
+WIKI_SCRAPE_HERE_API_KEY = os.environ.get("WIKI_SCRAPE_HERE_API_KEY")
+
 
 response = requests.get(url="https://en.wikipedia.org/wiki/Main_Page")
 soup = BeautifulSoup(response.content, 'html.parser')
@@ -17,8 +23,8 @@ all_news = {
     "recent_deaths": news_recent_deaths
 }
 
-# Scraping featured news - Wikipedia main page, the top-right section with the heading "In the news", the dotted ul of recent news
 
+# Scraping featured news - Wikipedia main page, the top-right section with the heading "In the news", the dotted ul of recent news
 
 wiki_itn_featured = soup.find(id="mp-itn").find_all("li")
 
@@ -45,7 +51,7 @@ for news in wiki_itn_ongoing:
         {"title": title, "href": "https://en.wikipedia.org" + slug}
     )
 
-# Scraping ongoing news - Wikipedia main page, the top-right section with the heading "In the news", the "Recent deaths" section in the footer (immediately below ongoing news)
+# Scraping recent deaths - Wikipedia main page, the top-right section with the heading "In the news", the "Recent deaths" section in the footer (immediately below ongoing news)
 
 wiki_itn_recent_deaths = soup.find(
     "div",  {"class": "itn-footer"}).find_all('ul')[-1].find_all('a')
@@ -59,6 +65,18 @@ for news in wiki_itn_recent_deaths:
 
 # For each news object, go to the wikipedia page and scrape the top three paragraphs of main subject content, add it as a value to the news object
 
+
+def query_for_dd(location_query):
+    query_string = quote(location_query)
+    api_query_template = "https://geocode.search.hereapi.com/v1/geocode?q=%s&apiKey=%s"
+    api_query = api_query_template % (
+        query_string, WIKI_SCRAPE_HERE_API_KEY)
+    response = requests.get(api_query)
+    response_dict = response.json()
+
+    return response_dict['items'][0]['position']
+
+
 for category in all_news.keys():
     for news in all_news[category]:
         href = news['href']
@@ -69,12 +87,32 @@ for category in all_news.keys():
         topmost_paragraphs_elements = soup.find(
             id="mw-content-text").find_all('p', {'class': ''})[0:3]
 
-        dms_el = soup.find('span', {'class': 'geo-dms'})
-        if dms_el:
-            dms = dms_el.text.split(' ')
-            news['coords'] = {'lat': dms2dec(dms[0]), 'lon': dms2dec(dms[1])}
-            print(news)
-            # dd_str = dms2dec(str(dms.text))
-
         for p_el in topmost_paragraphs_elements:
             news['content'] = p_el.text
+
+        # Some articles have a DMS string providing the location
+
+        dms_el = soup.find('span', {'class': 'geo-dms'})
+        # If they do, great! Convert it to Decimal Degrees, add it to the news object
+        if dms_el:
+            dms = dms_el.text.split(' ')
+            news['coords'] = {'lat': dms2dec(dms[0]), 'lng': dms2dec(dms[1])}
+            continue
+        # ...If they don't, we have to infer from a string. Finding a table header of "location", "place of death", or a div with class "deathplace" are good starts
+        else:
+            location_query = ''
+            if (location_table_header := soup.find('th', string="Location")):
+                location_query = location_table_header.next_element.next_element.text.strip()
+
+            elif (location_table_header := soup.find('th', string="Place of death")):
+                location_query = location_table_header.next_element.next_element.text.strip()
+
+            elif (location := soup.find('div', {"class": "deathplace"})):
+                location_query = location.text.strip()
+
+            else:
+                location_query = soup.find(id="firstHeading").text.strip()
+            # ask the HERE Geocoding API for help, recieving geolocation based on the best string we found and add it to the news object
+            news['coords'] = query_for_dd(location_query)
+
+        print(news['coords'])
