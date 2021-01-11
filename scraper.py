@@ -1,18 +1,28 @@
+
+import os
+import requests
+import re
+import json
+import geograpy
+import pymongo
+
+from pymongo import MongoClient
+from datetime import date
 from urllib.parse import quote
 from dms2dec.dms_convert import dms2dec
 from bs4 import BeautifulSoup
-import os
-import requests
-import json
-import geograpy
 
+# Env variables
 
 WIKI_SCRAPE_HERE_API_KEY = os.environ.get("WIKI_SCRAPE_HERE_API_KEY")
-
+WIKI_SCRAPE_DB_PASS = os.environ.get("WIKI_SCRAPE_DB_PASS")
+WIKI_SCRAPE_DB_USER = os.environ.get("WIKI_SCRAPE_DB_USER")
 
 response = requests.get(url="https://en.wikipedia.org/wiki/Main_Page")
 soup = BeautifulSoup(response.content, 'html.parser')
 
+
+# End product
 
 news_featured = []
 news_ongoing = []
@@ -89,8 +99,13 @@ for category in all_news.keys():
         topmost_paragraphs_elements = soup.find(
             id="mw-content-text").find_all('p', {'class': ''})[0:3]
 
+        news['content'] = []
         for p_el in topmost_paragraphs_elements:
-            news['content'] = p_el.text
+            content_with_citation_marks = p_el.text
+            content_without_citation_marks = re.sub(
+                r"\[\d\]", "", content_with_citation_marks)
+
+            news['content'].append(content_without_citation_marks)
 
         # Some articles have a DMS string providing the location
 
@@ -124,4 +139,23 @@ for category in all_news.keys():
             # ... and ask the HERE Geocoding API for help, recieving geolocation based on the best string we found and add it to the news object
             news['coords'] = query_for_dd(location_query)
 
-        print(news['title'], news['coords'])
+
+today = date.today()
+timestamp = today.strftime("%d %B %Y")
+
+# Send it to mongo
+
+mongo_connection_template = "mongodb+srv://wiki-scrape:%s@cluster0.5f7z9.mongodb.net/%s?retryWrites=true&w=majority"
+mongo_connection_string = mongo_connection_template % (
+    WIKI_SCRAPE_DB_PASS, WIKI_SCRAPE_DB_USER)
+
+cluster = MongoClient(
+    mongo_connection_string)
+db = cluster['wiki-scrape']
+collection = db[timestamp]
+
+
+collection.insert_one(all_news)
+
+if collection.count_documents({}) > 14:
+    oldestNews = collection.delete_one({})
