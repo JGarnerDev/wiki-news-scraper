@@ -1,26 +1,39 @@
 
+from bs4 import BeautifulSoup
+from dms2dec.dms_convert import dms2dec
+from urllib.parse import quote
+from datetime import date
+from pymongo import MongoClient
+from dotenv import load_dotenv
+import pymongo
+import geograpy
+import json
+import re
 import os
 import requests
-import re
-import json
-import geograpy
-import pymongo
 
-from pymongo import MongoClient
-from datetime import date
-from urllib.parse import quote
-from dms2dec.dms_convert import dms2dec
-from bs4 import BeautifulSoup
 
 # Env variables
 
-WIKI_SCRAPE_HERE_API_KEY = os.environ.get("WIKI_SCRAPE_HERE_API_KEY")
-WIKI_SCRAPE_DB_PASS = os.environ.get("WIKI_SCRAPE_DB_PASS")
-WIKI_SCRAPE_DB_USER = os.environ.get("WIKI_SCRAPE_DB_USER")
+rootdir = os.path.expanduser('~/wiki-scrape')
+load_dotenv(os.path.join(rootdir, '.env'))
+
+WIKI_SCRAPE_HERE_API_KEY = os.getenv("WIKI_SCRAPE_HERE_API_KEY")
+WIKI_SCRAPE_DB_PASS = os.getenv("WIKI_SCRAPE_DB_PASS")
+WIKI_SCRAPE_DB_USER = os.getenv("WIKI_SCRAPE_DB_USER")
+
 
 response = requests.get(url="https://en.wikipedia.org/wiki/Main_Page")
 soup = BeautifulSoup(response.content, 'html.parser')
 
+# Mongo
+
+mongo_connection_template = "mongodb+srv://wiki-scrape:%s@cluster0.5f7z9.mongodb.net/%s?retryWrites=true&w=majority"
+mongo_connection_string = mongo_connection_template % (
+    WIKI_SCRAPE_DB_PASS, WIKI_SCRAPE_DB_USER)
+
+cluster = MongoClient(
+    mongo_connection_string)
 
 # End product
 
@@ -145,12 +158,7 @@ timestamp = today.strftime("%d %B %Y")
 
 # Send it to mongo
 
-mongo_connection_template = "mongodb+srv://wiki-scrape:%s@cluster0.5f7z9.mongodb.net/%s?retryWrites=true&w=majority"
-mongo_connection_string = mongo_connection_template % (
-    WIKI_SCRAPE_DB_PASS, WIKI_SCRAPE_DB_USER)
 
-cluster = MongoClient(
-    mongo_connection_string)
 db = cluster['wiki-scrape']
 collection = db[timestamp]
 
