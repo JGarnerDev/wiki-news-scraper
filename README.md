@@ -1,4 +1,4 @@
-# Wiki-News-Scrape
+# Wiki-News-Scraper
 
 ## Introduction and Purpose
 
