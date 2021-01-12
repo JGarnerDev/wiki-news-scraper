@@ -15,7 +15,7 @@ import requests
 
 # Env variables
 
-rootdir = os.path.expanduser('~/wiki-scrape')
+rootdir = os.path.expanduser('~/wiki-news-scraper')
 load_dotenv(os.path.join(rootdir, '.env'))
 
 WIKI_SCRAPE_HERE_API_KEY = os.getenv("WIKI_SCRAPE_HERE_API_KEY")

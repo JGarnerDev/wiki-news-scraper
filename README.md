@@ -27,3 +27,7 @@ I like explaining things; there will be a .md file to articulate my thought proc
 ## Environment
 
 Wiki-News-Scraper will be automated at [Python Anywhere](https://www.pythonanywhere.com/)
+
+## History
+
+As seen in scraper.py, this project was originally designed to scrape and format information in run time, relying on an API to turn our locations into DD geolocation data. Now that I'm adopting the microservice architecture, this is a silly thing to do. Instead of burdening this task with many features (as some sort of love letter to how cool Python is), it will only scrape and submit scraped strings. A more efficient use of resources, less reliance on libraries, and less to test. I'm loving it.
