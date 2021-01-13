@@ -19,7 +19,9 @@ load_dotenv(os.path.join(rootdir, '.env'))
 
 
 def form_wiki_href_from_slug(slug):
-    if slug[0:3] == "/w/":
+    print(slug)
+    print(slug[0:3])
+    if slug[0:3] == "/w/" or len(slug) == 0:
         return ""
     return "https://en.wikipedia.org" + slug
 
@@ -109,11 +111,11 @@ for li in wiki_recent_deaths:
     news['href'] = form_wiki_href_from_slug(link['href'])
     all_scraped_news['deaths'].append(news)
 
-# --- Now to add content, location, and featured image src to each news object
+# --- Now to add content, location, and featured image src to each news object (if they news has its own page (and if these things are present))
 
 for category in all_scraped_news.keys():
     for news in all_scraped_news[category]:
-        if news['href']:
+        if len(news['href']):
             scrape_target = news['href']
             response = requests.get(url=scrape_target)
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -127,10 +129,39 @@ for category in all_scraped_news.keys():
                 text_content = p_el.text.strip()
 
                 if len(text_content) > 40 and len(news['content']) < 3 and not p_el.find_parent('td'):
-                    print("----------")
-                    print(text_content)
+
                     news['content'].append(text_content)
                 else:
                     continue
 
+            if category == "deaths":
+                pod = ""
+                pod_header = soup.find("th", string="Died")
+                if not pod_header:
+                    pod_header = soup.find('th', string="Place of death")
+                if not pod_header:
+                    pod = soup.find(
+                        'div', {"class": "deathplace"})
+                if pod:
+                    news["location_string"] = pod.text.strip()
+                elif pod_header:
+                    news["location_string"] = pod_header.next_element.next_element.text.strip()
+            else:
+                location_ele = soup.find("div", {"class": "location"})
+                geo_dec = soup.find('span', {"class": "geo-dec"})
+                geo_dms = soup.find('span', {"class": "geo-dms"})
+                if geo_dec:
+                    news['geo_dec'] = geo_dec.text.strip()
+                elif geo_dms:
+                    news['geo_dms'] = geo_dms.text.strip()
+                elif location_ele:
+                    news['location_string'] = location_ele.text.strip()[0:20]
+
+            img_parent = soup.find('a', {"class": "image"})
+            if img_parent:
+                img_ele = img_parent.find("img")
+                if int(img_ele['width']) > 80:
+                    news['feature_img_src'] = "https:" + img_ele["src"]
+
+        print("______________")
         time.sleep(0.5)
