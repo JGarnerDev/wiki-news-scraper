@@ -22,6 +22,11 @@ load_dotenv(os.path.join(rootdir, '.env'))
 # Setup / utility functions
 
 
+def get_soup(target):
+    response = requests.get(url=scrape_target)
+    return BeautifulSoup(response.content, 'html.parser')
+
+
 def form_wiki_href_from_slug(slug):
     if slug[0:3] == "/w/" or len(slug) == 0:
         return None
@@ -42,17 +47,12 @@ day = timestamp[-3:]
 
 all_scraped_news = {}
 
-# Setup / metrics
-
-news_amount = 0
-
 ## Scraping begins ##
 
 # Scrape featured events
 
 scrape_target = "https://en.wikipedia.org/wiki/Portal:Current_events"
-response = requests.get(url=scrape_target)
-soup = BeautifulSoup(response.content, 'html.parser')
+soup = get_soup(scrape_target)
 
 # Find the element containing "Topics in the news" (it's at the top of scrape target view)
 
@@ -97,8 +97,7 @@ for i, category_header in enumerate(ongoing_categories_headers):
 # Scrape recent deaths (a different page for efficiency)
 
 scrape_target = "https://en.wikipedia.org/wiki/Deaths_in_%s" % (year)
-response = requests.get(url=scrape_target)
-soup = BeautifulSoup(response.content, 'html.parser')
+soup = get_soup(scrape_target)
 
 wiki_recent_deaths_day_header = soup.find('h3')
 
@@ -132,42 +131,46 @@ for li in wiki_recent_deaths:
 
 for category in all_scraped_news.keys():
     for news in all_scraped_news[category]:
-        news_amount += 1
-
         if "href" in news.keys():
+            news['content'] = []
             scrape_target = news['href']
-            response = requests.get(url=scrape_target)
-            soup = BeautifulSoup(response.content, 'html.parser')
+            soup = get_soup(scrape_target)
 
             article_first_p_els = soup.find("div", {"class": "mw-parser-output"}).find_all(
                 "p", class_=False, id=False)
 
-            news['content'] = []
+            img_parent = soup.find('a', {"class": "image"})
+
+            if img_parent:
+                img_ele = img_parent.find("img")
+                # if this size, likely not a ui icon or somesuch
+                if int(img_ele['width']) > 80:
+                    news['feature_img_src'] = "https:" + img_ele["src"]
 
             for p_el in article_first_p_els:
                 text_content = get_clean_ele_text(p_el)
                 # if the p element is not in a table element
                 #   and if there's less than three entries to the content list
                 #   and if the p element is significant in size (more than 40 characters (arbitrary))
-
                 if not p_el.find_parent('td') and len(news['content']) < 3 and len(text_content) > 40:
                     news['content'].append(text_content)
                 else:
                     continue
 
             if category == "deaths":
-                pod = ""
-                pod_header = soup.find("th", string="Died")
-                if not pod_header:
-                    pod_header = soup.find('th', string="Place of death")
-                if not pod_header:
-                    pod = soup.find(
+                # Time/place of death
+                tpod = ""
+                tpod_header = soup.find("th", string="Died")
+                if not tpod_header:
+                    tpod_header = soup.find('th', string="Place of death")
+                if not tpod_header:
+                    tpod = soup.find(
                         'div', {"class": "deathplace"})
-                if pod:
-                    news["location_string"] = get_clean_ele_text(pod)
-                elif pod_header:
-                    news["location_string"] = get_clean_ele_text(
-                        pod_header.next_element.next_element)
+                if tpod:
+                    news["tpod"] = get_clean_ele_text(tpod)
+                elif tpod_header:
+                    news["tpod"] = get_clean_ele_text(
+                        tpod_header.next_element.next_element)
 
             else:
                 location_ele = soup.find("div", {"class": "location"})
@@ -183,39 +186,23 @@ for category in all_scraped_news.keys():
                     news['location_string'] = get_clean_ele_text(location_ele)[
                         0:20]
 
-            img_parent = soup.find('a', {"class": "image"})
-            if img_parent:
-                img_ele = img_parent.find("img")
-                # if this size, likely not a ui icon or somesuch
-                if int(img_ele['width']) > 80:
-                    news['feature_img_src'] = "https:" + img_ele["src"]
-
         # Be polite and don't create stress on target servers - wait 0.5 seconds before scraping again
         time.sleep(0.5)
 
 ## Scraping ends ##
 
-# Metrics / final census
-
-news_scraped_content = 0
-news_possible_content = news_amount * 5
-
-for category in all_scraped_news.keys():
-    for news in all_scraped_news[category]:
-        for content in news.keys():
-            news_scraped_content += 1
-
-news_content_saturation = (news_scraped_content / news_possible_content) * 100
-
-
 # Ship it somewhere for cleaning
 
 output = {
     "timestamp": timestamp,
-    "amount": news_amount,
-    "saturation": news_content_saturation,
     "description": "This is the raw news data scraped from Wikipedia by wiki-news-scraper",
     "scraped": all_scraped_news
 }
 
-print(output['saturation'])
+for category in output['scraped']:
+    for news in output['scraped'][category]:
+        print("---------")
+        print("CATEGORY: " + category)
+        for key in news.keys():
+            print(key + ": ")
+            print(news[key])
