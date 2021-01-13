@@ -22,6 +22,8 @@ I like explaining things; there will be a .md file to articulate my thought proc
       1. Obtaining a location string if present, _or_
       1. Simply using the article title with a 3rd party API
 
+   1. Get the featured image src of the article
+
 1. Organize the scraped material, send it to my Flask API
 
 ## Environment

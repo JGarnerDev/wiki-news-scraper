@@ -126,7 +126,7 @@ for category in all_scraped_news.keys():
             news['content'] = []
 
             for p_el in article_first_p_els:
-                text_content = p_el.text.strip()
+                text_content = get_clean_ele_text(p_el)
 
                 if len(text_content) > 40 and len(news['content']) < 3 and not p_el.find_parent('td'):
 
@@ -143,19 +143,21 @@ for category in all_scraped_news.keys():
                     pod = soup.find(
                         'div', {"class": "deathplace"})
                 if pod:
-                    news["location_string"] = pod.text.strip()
+                    news["location_string"] = get_clean_ele_text(pod)
                 elif pod_header:
-                    news["location_string"] = pod_header.next_element.next_element.text.strip()
+                    news["location_string"] = get_clean_ele_text(
+                        pod_header.next_element.next_element)
             else:
                 location_ele = soup.find("div", {"class": "location"})
                 geo_dec = soup.find('span', {"class": "geo-dec"})
                 geo_dms = soup.find('span', {"class": "geo-dms"})
                 if geo_dec:
-                    news['geo_dec'] = geo_dec.text.strip()
+                    news['geo_dec'] = get_clean_ele_text(geo_dec)
                 elif geo_dms:
-                    news['geo_dms'] = geo_dms.text.strip()
+                    news['geo_dms'] = get_clean_ele_text(geo_dms)
                 elif location_ele:
-                    news['location_string'] = location_ele.text.strip()[0:20]
+                    news['location_string'] = get_clean_ele_text(location_ele)[
+                        0:20]
 
             img_parent = soup.find('a', {"class": "image"})
             if img_parent:
@@ -163,5 +165,14 @@ for category in all_scraped_news.keys():
                 if int(img_ele['width']) > 80:
                     news['feature_img_src'] = "https:" + img_ele["src"]
 
-        print("______________")
         time.sleep(0.5)
+
+# Ship it somewhere for cleaning
+
+output = {
+    "timestamp": timestamp,
+    "scraped": all_scraped_news
+}
+
+
+print(output)
