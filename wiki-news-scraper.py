@@ -19,8 +19,6 @@ load_dotenv(os.path.join(rootdir, '.env'))
 
 
 def form_wiki_href_from_slug(slug):
-    print(slug)
-    print(slug[0:3])
     if slug[0:3] == "/w/" or len(slug) == 0:
         return ""
     return "https://en.wikipedia.org" + slug
@@ -108,14 +106,16 @@ for li in wiki_recent_deaths:
     news = {}
     link = li.find('a')
     news['title'] = link['title']
-    news['href'] = form_wiki_href_from_slug(link['href'])
+    href = form_wiki_href_from_slug(link['href'])
+    if href:
+        news['href'] = href
     all_scraped_news['deaths'].append(news)
 
 # --- Now to add content, location, and featured image src to each news object (if they news has its own page (and if these things are present))
 
 for category in all_scraped_news.keys():
     for news in all_scraped_news[category]:
-        if len(news['href']):
+        if "href" in news.keys():
             scrape_target = news['href']
             response = requests.get(url=scrape_target)
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -164,15 +164,13 @@ for category in all_scraped_news.keys():
                 img_ele = img_parent.find("img")
                 if int(img_ele['width']) > 80:
                     news['feature_img_src'] = "https:" + img_ele["src"]
-
+        print(news.keys())
         time.sleep(0.5)
 
 # Ship it somewhere for cleaning
 
 output = {
     "timestamp": timestamp,
+    "description": "This is the raw news data scraped from Wikipedia",
     "scraped": all_scraped_news
 }
-
-
-print(output)
