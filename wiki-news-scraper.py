@@ -174,6 +174,14 @@ for category in all_scraped_news.keys():
 
             else:
                 location_ele = soup.find("div", {"class": "location"})
+                if not location_ele:
+                    location_ele = soup.find("td", {"class": "location"})
+                if not location_ele:
+                    location_ele = soup.find(
+                        "th",  string="location")
+                    if location_ele:
+                        location_ele = location_ele.next_sibling()
+                        print(location_ele)
                 geo_dec = soup.find('span', {"class": "geo-dec"})
                 geo_dms = soup.find('span', {"class": "geo-dms"})
                 # If it exists, take the first one of the following values (in order of preferrence)
@@ -184,7 +192,7 @@ for category in all_scraped_news.keys():
                 elif location_ele:
                     # Take a useful enough string segment to run a geocode search
                     news['location_string'] = get_clean_ele_text(location_ele)[
-                        0:20]
+                        0: 20]
 
         # Be polite and don't create stress on target servers - wait 0.5 seconds before scraping again
         time.sleep(0.5)
@@ -198,6 +206,10 @@ output = {
     "description": "This is the raw news data scraped from Wikipedia by wiki-news-scraper",
     "scraped": all_scraped_news
 }
+
+
+# print("-----------")
+# print(output['scraped'])
 
 for category in output['scraped']:
     for news in output['scraped'][category]:
