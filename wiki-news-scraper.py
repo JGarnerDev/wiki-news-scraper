@@ -15,15 +15,36 @@ import time
 #   Setup / dependancies / to scrape and timestamp
 from datetime import date
 
+#   Setup / dependancies / to send output
+import json
+#   Setup / dependancies / encryption
+from cryptography.fernet import Fernet
+
+
 # Setup / environmental variables to scope
 rootdir = os.path.expanduser('~/wiki-news-scraper')
-load_dotenv(os.path.join(rootdir, '.env'))
+load_dotenv()
+
+WIKI_NEWS_WRANGLER_URI = os.getenv("WIKI_NEWS_WRANGLER_URI")
+WIKI_NEWS_WRANGLER_PASS = os.getenv("WIKI_NEWS_WRANGLER_PASS")
+F_KEY = os.getenv("F_KEY")
+
+# Setup / encrypting wiki-news-wrangler password for http request
+
+key = bytes(F_KEY, 'utf-8')
+f = Fernet(key)
+
+pw = bytes(WIKI_NEWS_WRANGLER_PASS, 'utf-8')
+
+
+token = f.encrypt(pw).decode('utf-8')
+
 
 # Setup / utility functions
 
 
 def get_soup(target):
-    response = requests.get(url=scrape_target)
+    response = requests.get(url=target)
     return BeautifulSoup(response.content, 'html.parser')
 
 
@@ -181,7 +202,6 @@ for category in all_scraped_news.keys():
                         "th",  string="location")
                     if location_ele:
                         location_ele = location_ele.next_sibling()
-                        print(location_ele)
                 geo_dec = soup.find('span', {"class": "geo-dec"})
                 geo_dms = soup.find('span', {"class": "geo-dms"})
                 # If it exists, take the first one of the following values (in order of preferrence)
@@ -204,17 +224,23 @@ for category in all_scraped_news.keys():
 output = {
     "timestamp": timestamp,
     "description": "This is the raw news data scraped from Wikipedia by wiki-news-scraper",
-    "scraped": all_scraped_news
+    "scraped": all_scraped_news,
+    "token": token
 }
 
+# Optional, for viewing entertainment:
 
-# print("-----------")
-# print(output['scraped'])
+# for category in output['scraped']:
+#     for news in output['scraped'][category]:
+#         print("---------")
+#         print("CATEGORY: " + category)
+#         for key in news.keys():
+#             print(key + ": ")
+#             print(news[key])
 
-for category in output['scraped']:
-    for news in output['scraped'][category]:
-        print("---------")
-        print("CATEGORY: " + category)
-        for key in news.keys():
-            print(key + ": ")
-            print(news[key])
+
+output = json.dumps(output)
+
+
+# requests.post(WIKI_NEWS_WRANGLER_URI, json=output)
+requests.post("http://127.0.0.1:33507/api/wrangler", json=output)
