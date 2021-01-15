@@ -219,7 +219,7 @@ for category in all_scraped_news.keys():
 
 ## Scraping ends ##
 
-# Ship it somewhere for cleaning
+# Ship it to my wiki-news-wrangler API for cleaning
 
 output = {
     "timestamp": timestamp,
