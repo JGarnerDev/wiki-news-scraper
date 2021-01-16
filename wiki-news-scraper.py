@@ -13,7 +13,7 @@ import re
 import time
 
 #   Setup / dependancies / to scrape and timestamp
-from datetime import date
+from datetime import datetime
 
 #   Setup / dependancies / to send output
 import json
@@ -35,10 +35,7 @@ key = bytes(F_KEY, 'utf-8')
 f = Fernet(key)
 
 pw = bytes(WIKI_NEWS_WRANGLER_PASS, 'utf-8')
-
-
 token = f.encrypt(pw).decode('utf-8')
-
 
 # Setup / utility functions
 
@@ -60,12 +57,14 @@ def get_clean_ele_text(ele):
 # Setup / time strings
 
 
-timestamp = str(date.today())
-year = timestamp[0:4]
-day = timestamp[-3:]
+now = datetime.now()
+timestamp = datetime.timestamp(now)
+
+t_str = str(datetime.fromtimestamp(timestamp))[:-10]
+year = t_str[:-12]
+day = t_str[8:-6]
 
 # Setup / dictionary that will be exported
-
 all_scraped_news = {}
 
 ## Scraping begins ##
@@ -222,7 +221,7 @@ for category in all_scraped_news.keys():
 # Ship it to my wiki-news-wrangler API for cleaning
 
 output = {
-    "timestamp": timestamp,
+    "time": t_str,
     "description": "This is the raw news data scraped from Wikipedia by wiki-news-scraper",
     "scraped": all_scraped_news,
     "token": token
@@ -242,5 +241,5 @@ output = {
 output = json.dumps(output)
 
 
-# requests.post(WIKI_NEWS_WRANGLER_URI, json=output)
-requests.post("http://127.0.0.1:33507/api/wrangler", json=output)
+requests.post(WIKI_NEWS_WRANGLER_URI, json=output)
+# requests.post("http://127.0.0.1:33507/api/wrangler", json=output)
