@@ -9,7 +9,6 @@ import requests
 
 #   Setup / dependancies / to scrape
 from bs4 import BeautifulSoup
-import re
 import time
 
 #   Setup / dependancies / to scrape and timestamp
